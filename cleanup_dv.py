@@ -54,7 +54,12 @@ def cleanup_dv_files():
             
             # Step B: Process lines (remove blank lines and strip trailing spaces)
             lines = content.splitlines()
-            cleaned_lines = [line.rstrip() for line in lines if line.strip()]
+            cleaned_lines = []
+            for line in lines:
+                if line.strip():
+                    # Replace multiple spaces with a single space
+                    line = re.sub(r'\s+', ' ', line).strip()
+                    cleaned_lines.append(line)
             
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write('\n'.join(cleaned_lines) + '\n')
