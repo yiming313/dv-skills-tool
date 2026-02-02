@@ -15,10 +15,13 @@ def remove_comments(text):
 def optimize_file(file_path, flatten=True, keep_comments=False):
     """
     Optimizes a single RTL file.
+    Returns (success, original_size, optimized_size)
     """
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
+        
+        orig_size = len(content)
         
         if not keep_comments:
             content = remove_comments(content)
@@ -29,23 +32,22 @@ def optimize_file(file_path, flatten=True, keep_comments=False):
         for line in lines:
             if line.strip():
                 if flatten:
-                    # Flatten: replace multiple spaces with single, and strip leading/trailing
                     line = re.sub(r'\s+', ' ', line).strip()
                 else:
-                    # No flatten: strip trailing, but keep relative leading indentation (normalized to spaces)
                     line = line.rstrip()
-                    # Optional: Convert tabs to 4 spaces, then normalize inner spaces
                     line = line.replace('\t', '    ')
-                
                 cleaned_lines.append(line)
         
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write('\n'.join(cleaned_lines) + '\n')
+        final_content = '\n'.join(cleaned_lines) + '\n'
+        opt_size = len(final_content)
         
-        return True
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(final_content)
+        
+        return True, orig_size, opt_size
     except Exception as e:
         print(f"Error processing {file_path}: {e}")
-        return False
+        return False, 0, 0
 
 def main():
     parser = argparse.ArgumentParser(description="DV Skills Tool: Optimize RTL codebases for AI token efficiency.")
@@ -81,13 +83,26 @@ def main():
                 files_to_optimize.append(file_path)
 
     print(f"\n--- Optimizing {len(files_to_optimize)} RTL files ---")
+    total_orig = 0
+    total_opt = 0
     success_count = 0
+    
     for file_path in files_to_optimize:
-        if optimize_file(file_path, flatten=not args.no_flatten, keep_comments=args.keep_comments):
-            print(f"Optimized: {file_path}")
+        success, orig, opt = optimize_file(file_path, flatten=not args.no_flatten, keep_comments=args.keep_comments)
+        if success:
+            total_orig += orig
+            total_opt += opt
+            reduction = (1 - opt/orig) * 100 if orig > 0 else 0
+            print(f"Optimized: {file_path} ({reduction:.1f}% reduction)")
             success_count += 1
 
-    print(f"\nDone! {success_count} files processed. RTL logic is now token-optimized. 🪬")
+    print(f"\nDone! {success_count} files processed.")
+    if total_orig > 0:
+        saved_chars = total_orig - total_opt
+        # Heuristic: 1 token approx 4 characters
+        est_tokens_saved = saved_chars // 4
+        print(f"Summary: Reduced code size from {total_orig} to {total_opt} chars.")
+        print(f"Estimated Token Savings: ~{est_tokens_saved} tokens ({(1 - total_opt/total_orig)*100:.1f}% smaller). 🪬")
 
     # Final touch: remove empty directories
     for root, dirs, files in os.walk(args.path, topdown=False):
